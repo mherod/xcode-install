@@ -26,7 +26,7 @@ module XcodeInstall
       io.each { |line| puts line }
       io.close
 
-      result = $?.exitstatus == 0
+      result = $?.exitstatus.zero?
 
       FileUtils.rm_f(COOKIES_PATH)
       result
@@ -135,7 +135,7 @@ HELP
 
     def install_version(version, switch = true, clean = true, install = true, progress = true, url = nil)
       dmg_path = get_dmg(version, progress, url)
-      fail Informative, "Failed to download Xcode #{version}." if dmg_path.nil?
+      raise Informative, "Failed to download Xcode #{version}." if dmg_path.nil?
 
       if install
         install_dmg(dmg_path, "-#{version.split(' ')[0]}", switch, clean)
@@ -186,7 +186,7 @@ HELP
       plist = hdiutil('mount', '-plist', '-nobrowse', '-noverify', dmg_path.to_s)
       document = REXML::Document.new(plist)
       node = REXML::XPath.first(document, "//key[.='mount-point']/following-sibling::*[1]")
-      fail Informative, 'Failed to mount image.' unless node
+      raise Informative, 'Failed to mount image.' unless node
       node.text
     end
 
@@ -271,9 +271,7 @@ HELP
         /^Xcode [0-9]/.match(t['name'])
       end
 
-      xcodes = seeds.map { |x| Xcode.new(x) }.reject { |x| x.version < MINIMUM_VERSION }.sort do |a, b|
-        a.date_modified <=> b.date_modified
-      end
+      xcodes = seeds.map { |x| Xcode.new(x) }.reject { |x| x.version < MINIMUM_VERSION }.sort_by(&:date_modified)
 
       xcodes.select { |x| x.url.end_with?('.dmg') || x.url.end_with?('.xip') }
     end
@@ -297,11 +295,11 @@ HELP
       end
       links = links.map { |pre| Xcode.new_prerelease(pre[2].strip.gsub(/.*Xcode /, ''), pre[0], pre[3]) }
 
-      if links.count == 0
+      if links.count.zero?
         rg = %r{platform-title.*Xcode.* beta.*<\/p>}
         scan = body.scan(rg)
 
-        if scan.count == 0
+        if scan.count.zero?
           rg = %r{Xcode.* GM.*<\/p>}
           scan = body.scan(rg)
         end
@@ -324,19 +322,19 @@ HELP
 
     def verify_integrity(path)
       puts `/usr/sbin/spctl --assess --verbose=4 --type execute #{path}`
-      $?.exitstatus == 0
+      $?.exitstatus.zero?
     end
 
     def hdiutil(*args)
       io = IO.popen(['hdiutil', *args])
       result = io.read
       io.close
-      unless $?.exitstatus == 0
+      unless $?.exitstatus.zero?
         file_path = args[-1]
         if `file -b #{file_path}`.start_with?('HTML')
-          fail Informative, "Failed to mount #{file_path}, logging into your account from a browser should tell you what is going wrong."
+          raise Informative, "Failed to mount #{file_path}, logging into your account from a browser should tell you what is going wrong."
         end
-        fail Informative, 'Failed to invoke hdiutil.'
+        raise Informative, 'Failed to invoke hdiutil.'
       end
       result
     end
@@ -388,7 +386,7 @@ HELP
       prepare_package unless pkg_path.exist?
       puts "Please authenticate to install #{name}..."
       `sudo installer -pkg #{pkg_path} -target /`
-      fail Informative, "Could not install #{name}, please try again" unless installed?
+      raise Informative, "Could not install #{name}, please try again" unless installed?
       source_receipts_dir = '/private/var/db/receipts'
       target_receipts_dir = "#{@install_prefix}/System/Library/Receipts"
       FileUtils.mkdir_p(target_receipts_dir)

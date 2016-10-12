@@ -18,7 +18,7 @@ module XcodeInstall
         super
         help! 'A VERSION argument is required.' unless @version
 
-        fail Informative, "Version #{@version} is not installed." unless @installer.installed?(@version)
+        raise Informative, "Version #{@version} is not installed." unless @installer.installed?(@version)
       end
 
       def run
